@@ -250,25 +250,33 @@ def get_warp_pyramid(im1, im2, nol, criteria_, warp_mode):
     for level in range(nol):        
         if level != nol - 1:
             # if True:
-            cc, warp = cv2.findTransformECC(gray1_pyr[level], gray2_pyr[level],
+            try:
+                cc, warp = cv2.findTransformECC(gray1_pyr[level], gray2_pyr[level],
                                             warp, warp_mode, criteria_, inputMask=None, gaussFiltSize=1)
-
+            except Exception as e:
+                # error
+                str_err = 'ERR cv2.findTransformECC'
+                print(str_err)
+                return warp, False
+           
         # if level != nol-1:  # scale up for the next pyramid level
         warp = warp * np.array([[1, 1, 2], [1, 1, 2]], dtype=np.float32)    
 
-    return warp  #torch.from_numpy(warp)
+    return warp, True  #torch.from_numpy(warp)
 
     
 
 def calcOffsetByECC(src1, src2,isDebug=False,debugPath='./'):  
-    
-    start_time1=time.time()
+    #start_time1=time.time()
     
     criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 100, 0.00001) 
     pyramid_nol = 5  
     warp_mode =  cv2.MOTION_EUCLIDEAN   
-    warp_matrix= get_warp_pyramid(src1, src2, pyramid_nol, criteria, warp_mode)    
-    
+    warp_matrix, isOK = get_warp_pyramid(src1, src2, pyramid_nol, criteria, warp_mode) 
+    if not isOK:
+        #print("ECC time:",time.time()-start_time1)  
+        return 0,0
+        
     pt= np.array([[100,100,100,100]])
     pos = warp_pos(pt, warp_matrix)                    
     x1_new = int(pos[0][0].item())
@@ -279,7 +287,7 @@ def calcOffsetByECC(src1, src2,isDebug=False,debugPath='./'):
     x_offset=x1_new-100
     y_offset=y1_new-100     
    
-    print("ECC time:",time.time()-start_time1)  
+    #print("ECC time:",time.time()-start_time1)  
     
     return x_offset,y_offset
     
@@ -320,7 +328,6 @@ def calcOffsetByORB(src1, src2,isDebug=False,debugPath='./'):#如果报错，安
         #print (x_offset,y_offset)
     return x_offset,y_offset
 
-            
 if __name__ == '__main__':   
     im1_path="/data/AI/yushan/motion_static/images/8001/JS-002_33_20200708154639.jpg"
     im2_path="/data/AI/yushan/motion_static/images/8001/JS-002_33_20200708154650.jpg"
